@@ -1,0 +1,215 @@
+<html>
+    <head>
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+        <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+        <script type="text/javascript">
+            var lastRowId;
+            google.charts.load('current', {'packages':['corechart']});
+            google.charts.setOnLoadCallback(drawChart);
+            
+            var chartData;
+            var chart;
+            var options;
+            var avgTemp;
+            var avgHumid;
+            var rawData = []
+            var qDate;
+
+            lastRowId = <%= lastTen[lastTen.length-1].rowid %>;
+            console.log(lastRowId);
+
+            <% lastTen.forEach(function(row){ %>
+                rawData.push([new Date("<%=row.ctime%>"),<%=row.temp%>, <%=row.humid%>]);
+            <% }); %>
+            
+            
+            function drawSummaryChart(result) {
+                if(result.length > 0) {
+                    $('#errmesg').html(``)
+                    var data = new google.visualization.DataTable();
+                    data.addColumn('string', 'ctime');
+                    data.addColumn('number', 'Temp');
+                    data.addColumn('number', 'Humid');
+
+                    result.forEach(function(row) {
+                        data.addRow([row.chour +":"+row.cminute, row.avgtemp, row.avghumid]);
+                    });
+
+                    var options = {
+                        title: `${result[0].cdate} 평균 온도/습도`,
+                        curveType: 'function',
+                        legend: { position: 'bottom' },
+                        lineWidth: 3,
+                        pointSize: 5,
+                        series: {
+                            0: {pointShape: {type: 'square'}},
+                            1: {pointShape: {}}
+                        }
+                    };
+
+                    var chart = new google.visualization.LineChart(document.getElementById('sum_curve_chart'));
+                    chart.draw(data, options);
+                } else {
+                    date = getQdateString(qDate);
+                    $('#sum_curve_chart').html(``)
+                    $('#errmesg').html(`${date}에 수집된 데이터는 없습니다.`)
+                }
+                
+            }
+            function drawChart() {
+                chartData = new google.visualization.DataTable();
+                chartData.addColumn('datetime', 'ctime');
+                chartData.addColumn('number', 'Temp');
+                chartData.addColumn('number', 'Humid');
+                chartData.addRows(rawData);
+                var totalTemp = 0;
+                var totalHumid = 0;
+                rawData.forEach(function(row){
+                    totalTemp += row[1];
+                    totalHumid += row[2];
+                });
+                
+                
+
+                avgTemp = parseFloat(parseFloat(totalTemp) / Number(rawData.length));
+                avgHumid = totalHumid / rawData.length;
+
+                $('#avgCurrent').html(`평균 온도: ${avgTemp.toFixed(1)}도, 평균 습도: ${avgHumid.toFixed(1)}%`);
+
+                options = {
+                    title: '실시간 온도/습도',
+                    curveType: 'function',
+                    hAxis: {
+                        format: 'HH:mm:ss'
+                    },
+                    legend: { position: 'bottom' },
+                    lineWidth: 3,
+                    pointSize: 8,
+                    series: {
+                        0: {pointShape: {type: 'square'}},
+                        1: {pointShape: {}}
+                    }
+
+                };
+
+
+                
+                chart = new google.visualization.LineChart(document.getElementById('curve_chart'));
+                chart.draw(chartData, options);
+
+                afterLoadChart();
+            }
+
+            
+            function afterLoadChart() {
+                var today = new Date();
+                today.setDate(today.getDate()-1);
+                qDate = today;
+                getSummary(getQdateString(today));
+                setInterval(getNewRows, 5000);
+            }
+            
+
+
+            function getNewRows(){
+                $.ajax({
+                    url: "get/"+lastRowId,
+                    type: "GET", 
+                    cache: false,
+                    success: function(result) {
+                        
+                        if(result.length > 0) {
+                            lastRowId = result[result.length-1].rowid;
+                            
+                            result.forEach(function(row){
+                                chartData.addRow([new Date(row.ctime),row.temp, row.humid]);  
+                            })
+                            chart.draw(chartData, options);
+                            var totalTemp = 0;
+                            var totalHumid = 0;
+                        
+                            chartData.fg.forEach(function(row){
+                                totalTemp += row.c[1].v;
+                                totalHumid += row.c[2].v;
+                            });
+                            
+
+                            avgTemp = totalTemp / chartData.fg.length;
+                            avgHumid = totalHumid / chartData.fg.length;
+                        
+                            $('#avgCurrent').html(`평균 온도: ${avgTemp.toFixed(1)}도, 평균 습도: ${avgHumid.toFixed(1)}%`);
+                            
+                        }                     
+                    }
+
+                });
+            }
+
+            
+            // drawChart(rawData);
+        </script>
+    </head>
+<body>
+<h1>온도/습도 대시보드</h1>
+<div>
+    <div id="curve_chart" style="width: 90%; height: 400px; margin-left: auto; margin-right: auto;"></div>
+    <div id="avgCurrent" style="text-align: center;"></div>
+    <br><br>
+    <div id="summary">
+        <div id="sum_curve_chart" style="width: 90%; height:400px; margin-left: auto; margin-right: auto;">
+        </div>
+        <div id="errmesg" style="text-align: center;"></div>
+        <br>
+        <div id="date"  style="text-align: center;">
+            <button class="prev"><</button>
+            <span id="selectDate"></span>
+            <button class="next">></button>
+        </div>
+    </div>
+</div>
+<!-- <ul id="row">
+<%    lastTen.forEach(function(row){ %>
+   <li><%=row.rowid %> <%= row.ctime %> <%= row.temp %> <%= row.humid %></li> 
+<% }) %> -->
+<!-- </ul> -->
+
+</body>
+<script type="text/javascript">
+    function getSummary(qdate){
+        $('#selectDate').html(qdate);
+        // console.log(`qdate : ${qdate}`);
+
+        $.ajax({
+            url: "getsum/"+qdate,
+            type: "GET", 
+            cache: false,
+            success: function(result) {
+                // console.log(qDate);
+                drawSummaryChart(result);                 
+            }
+
+        });
+    }
+    function getQdateString(qDate) {
+        var yyyy = qDate.getFullYear().toString();
+        var mm = (qDate.getMonth()+1).toString();         
+        mm = mm.length==2?mm:"0"+mm;
+        var dd = qDate.getDate().toString();
+        dd = dd.length==2?dd:"0"+dd;
+        var theDayBefore = yyyy+"-"+mm+"-"+dd;
+        return theDayBefore;
+    }
+
+    $('document').ready(function(){
+        $( "div#date" ).on("click",'button.prev', function() {
+            qDate.setDate(qDate.getDate()-1);
+            getSummary(getQdateString(qDate));
+        });
+        $( "div#date" ).on("click",'button.next', function() {
+            qDate.setDate(qDate.getDate()+1);
+            getSummary(getQdateString(qDate));
+        });
+    });
+    
+</script>
+</html>
