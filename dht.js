@@ -43,7 +43,7 @@ app.set('view engine', 'ejs');
 app.engine('html', require('ejs').renderFile);
 
 app.listen(port, ()=>{
-	console.log('App listening at ${port}');
+	console.log("App listening at " + port);
 });
 
 cron.schedule('0 9 * * *', ()=> {
