@@ -52,7 +52,4 @@ cron.schedule('0 9 * * *', ()=> {
 })
 
 
-// SELECT strftime('%H',ctime) AS hour, AVG(temp) AS average from tbth2 Where Date(ctime) = Date('2021-03-30') group by hour;
-// SELECT '2021-03-30', strftime('%H',ctime) AS hour, cast(strftime('%M',ctime) as integer) / 30 as minute , AVG(temp) AS average from tbth2 Where Date(ctime) = Date('2021-03-30') group by hour, minute;
-// SELECT '2021-03-30', strftime('%H',ctime) AS hour, (cast(strftime('%M',ctime) as integer) / 30) * 30 as minute , round(AVG(temp),1) AS avgtemp , round(AVG(humid),1) as avghumid from tbth2 Where Date(ctime) = Date('2021-03-30') group by hour, minute;
 
